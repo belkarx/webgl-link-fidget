@@ -1,0 +1,151 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Infinite Octahedron Zoom</title>
+  <style>
+    body {
+      margin: 0;
+      overflow: hidden;
+    }
+    canvas {
+      width: 100%;
+      height: 100%;
+    }
+  </style>
+</head>
+<body>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.138.3/build/three.min.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.138.3/examples/js/controls/OrbitControls.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.138.3/examples/js/geometries/TextGeometry.js"></script>
+  <script src="https://cdn.jsdelivr.net/npm/three@0.138.3/examples/js/loaders/FontLoader.js"></script>
+
+  <script>
+    // Set up the scene, camera, and renderer
+    const scene = new THREE.Scene();
+    const camera = new THREE.PerspectiveCamera(75, window.innerWidth / window.innerHeight, 0.001, 1000);
+    const renderer = new THREE.WebGLRenderer();
+    renderer.setSize(window.innerWidth, window.innerHeight);
+    document.body.appendChild(renderer.domElement);
+
+    // Set up the orbit controls
+    const controls = new THREE.OrbitControls(camera, renderer.domElement);
+    controls.enableDamping = true;
+    controls.dampingFactor = 0.05;
+    controls.screenSpacePanning = false;
+    controls.minDistance = -1000;
+    controls.maxDistance = 2000;
+
+    // Create the octahedron geometry
+    const geometry = new THREE.OctahedronGeometry(1);
+    const material = new THREE.MeshBasicMaterial({ color: 0xffffff, wireframe: true });
+
+    const layers = 8;
+    let scale = 1;
+
+    for (let i = 0; i < layers * 2; i++) {
+      const mesh = new THREE.Mesh(geometry, material);
+      mesh.scale.setScalar(scale);
+      scale *= 2;
+      scene.add(mesh);
+    }
+
+    camera.position.set(0, 0, 2 ** layers);
+
+    // Add lighting to the scene
+    const ambientLight = new THREE.AmbientLight(0xffffff, 0.5);
+    scene.add(ambientLight);
+
+    const pointLight = new THREE.PointLight(0xffffff, 1);
+    pointLight.position.set(5, 5, 5);
+    scene.add(pointLight);
+
+    // Add clickable links using TextGeometry
+    const loader = new THREE.FontLoader();
+    loader.load('https://cdn.jsdelivr.net/npm/three@0.138.3/examples/fonts/helvetiker_regular.typeface.json', function (font) {
+      const textGeometry = new THREE.TextGeometry('Click me!', {
+        font: font,
+        size: 1,
+        height: 0.2,
+        curveSegments: 12,
+        bevelEnabled: true,
+        bevelThickness: 0.03,
+        bevelSize: 0.02,
+        bevelOffset: 0,
+        bevelSegments: 5
+      });
+
+      const textMaterial = new THREE.MeshBasicMaterial({ color: 0x00ff00 });
+      const textMesh = new THREE.Mesh(textGeometry, textMaterial);
+      textMesh.position.set(0, 0, 0);
+      //scene.add(textMesh);
+
+      // Add click event listener to the text mesh
+      textMesh.onClick = function () {
+        window.open('https://www.example.com', '_blank');
+      };
+    });
+
+    // Add mousemove event listener to the document
+    document.addEventListener('mousemove', onMouseMove, false);
+
+    // Mouse move event handler
+    function onMouseMove(event) {
+      const mouse = new THREE.Vector2();
+      mouse.x = (event.clientX / window.innerWidth) * 2 - 1;
+      mouse.y = -(event.clientY / window.innerHeight) * 2 + 1;
+
+      // Check for intersections with the mouse
+      const raycaster = new THREE.Raycaster();
+      raycaster.setFromCamera(mouse, camera);
+
+      const intersects = raycaster.intersectObjects(scene.children);
+      for (let i = 0; i < intersects.length; i++) {
+        const object = intersects[i].object;
+        if (object.onClick) {
+          object.onClick();
+          break;
+        }
+      }
+    }
+
+    // Handle window resize
+    function onWindowResize() {
+      camera.aspect = window.innerWidth / window.innerHeight;
+      camera.updateProjectionMatrix();
+      renderer.setSize(window.innerWidth, window.innerHeight);
+    }
+    window.addEventListener('resize', onWindowResize, false);
+
+    // Render loop
+    function animate() {
+      requestAnimationFrame(animate);
+
+      const distance = controls.getDistance();
+      const minDistance = 2 ** (layers/2);
+      const maxDistance = 2 ** (layers+1);
+      const resetDistance = 2 ** (layers);
+
+      if (distance < minDistance) {
+        const newPosition = camera.position.clone().normalize().multiplyScalar(resetDistance);
+          const textPosition = camera.position.clone().normalize().multiplyScalar(resetDistance/2);
+
+        camera.position.copy(newPosition);
+        //textMesh.position.copy(textPosition);
+
+        controls.target.set(0, 0, 0);
+        controls.update();
+      } else if (distance > maxDistance) {
+        const newPosition = camera.position.clone().normalize().multiplyScalar(resetDistance);
+        camera.position.copy(newPosition);
+        controls.target.set(0, 0, 0);
+        controls.update();
+      }
+
+      renderer.render(scene, camera);
+      console.log(controls.getDistance());
+    }
+
+    animate();
+  </script>
+</body>
+</html>
